@@ -7,6 +7,17 @@
 
 
 import SwiftUI
+import UserNotifications
+
+class NotificationDelegate: NSObject, UNUserNotificationCenterDelegate {
+    // This method allows notifications to be shown even when app is in foreground
+    func userNotificationCenter(_ center: UNUserNotificationCenter,
+                               willPresent notification: UNNotification,
+                               withCompletionHandler completionHandler: @escaping (UNNotificationPresentationOptions) -> Void) {
+        // Always show alerts and play sounds for foreground notifications
+        completionHandler([.alert, .sound, .banner])
+    }
+}
 
 struct SettingsView: View {
     @EnvironmentObject private var authService: AuthenticationService
@@ -24,8 +35,11 @@ struct SettingsView: View {
     @State private var showingErrorAlert = false
     @State private var errorMessage = ""
     @State private var isLoading = false
+    @State private var showingNotificationAlert = false
+    @State private var notificationStatus = "Unknown"
     
     private let notificationService = NotificationService()
+    private let notificationDelegate = NotificationDelegate()
     
     private let currencies = [
         ("USD", "US Dollar"),
@@ -83,6 +97,19 @@ struct SettingsView: View {
                         DatePicker("Notification Time", selection: $notificationTime, displayedComponents: .hourAndMinute)
                         
                         Stepper("Notify \(notifyDaysBefore) days before", value: $notifyDaysBefore, in: 1...10)
+                        
+                        // Test Notification Button
+                        Button(action: sendTestNotification) {
+                            HStack {
+                                Image(systemName: "bell.badge.fill")
+                                    .foregroundColor(.blue)
+                                Text("Send Test Notification")
+                                Spacer()
+                                Image(systemName: "chevron.right")
+                                    .font(.caption)
+                                    .foregroundColor(.gray)
+                            }
+                        }
                     }
                 }
                 
@@ -173,7 +200,6 @@ struct SettingsView: View {
             }
             .navigationTitle("Settings")
             .onAppear(perform: loadUserPreferences)
-            // Fix for Equatable issue - observe ID changes instead of the entire object
             .onReceive(preferencesService.$userPreferences) { _ in
                 loadUserPreferences()
             }
@@ -204,6 +230,50 @@ struct SettingsView: View {
                 Button("OK") { }
             } message: {
                 Text(errorMessage)
+            }
+            .alert("Test Notification", isPresented: $showingNotificationAlert) {
+                Button("OK", role: .cancel) { }
+            } message: {
+                Text("A test notification has been scheduled and will appear in a few seconds.")
+            }
+        }
+    }
+    
+    private func sendTestNotification() {
+        // Request notification permission if needed
+        notificationService.requestAuthorization { granted in
+            if granted {
+                // Create and schedule a test notification
+                let center = UNUserNotificationCenter.current()
+                
+                let content = UNMutableNotificationContent()
+                content.title = "Test Notification"
+                content.body = "Your notifications are working correctly! 👍"
+                content.sound = .default
+                
+                // Trigger after 3 seconds for immediate feedback
+                let trigger = UNTimeIntervalNotificationTrigger(timeInterval: 6, repeats: false)
+                
+                // Create the request
+                let uuidString = UUID().uuidString
+                let request = UNNotificationRequest(identifier: uuidString, content: content, trigger: trigger)
+                
+                // Schedule the notification
+                center.add(request) { error in
+                    DispatchQueue.main.async {
+                        if let error = error {
+                            self.errorMessage = "Could not schedule notification: \(error.localizedDescription)"
+                            self.showingErrorAlert = true
+                        } else {
+                            self.showingNotificationAlert = true
+                        }
+                    }
+                }
+            } else {
+                DispatchQueue.main.async {
+                    self.errorMessage = "Notification permission denied. Please enable notifications in Settings."
+                    self.showingErrorAlert = true
+                }
             }
         }
     }

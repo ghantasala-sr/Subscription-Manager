@@ -15,11 +15,14 @@ struct DashboardView: View {
     
     @State private var showingAIExplanation = false
     @State private var aiExplanation = ""
+    @State private var selectedCategory: Category? = nil
     
     private var monthlyTotal: Double {
-        subscriptionService.subscriptions.reduce(0) { total, subscription in
-            total + (subscription.cost * subscription.billingCycle.monthlyFactor)
-        }
+        subscriptionService.subscriptions
+            .filter { $0.status == .active }
+            .reduce(0) { total, subscription in
+                total + (subscription.cost * subscription.billingCycle.monthlyFactor)
+            }
     }
     
     private var yearlyTotal: Double {
@@ -46,9 +49,20 @@ struct DashboardView: View {
     }
     
     var body: some View {
+        
         NavigationView {
             ScrollView {
                 VStack(spacing: 20) {
+                    // User Greeting
+                    VStack(alignment: .leading, spacing: 5) {
+                        Text("Hi, \(userGreeting)")
+                            .font(.system(size: 28, weight: .bold, design: .rounded))
+                            .foregroundColor(.primary)
+                    }
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .padding(.horizontal)
+                    .padding(.top, 10)
+                    
                     // Budget summary card
                     CardView {
                         VStack(spacing: 15) {
@@ -137,6 +151,18 @@ struct DashboardView: View {
                                         Divider()
                                     }
                                 }
+                                
+                                if subscriptionService.subscriptions.count > 3 {
+                                    Button(action: {
+                                        // Navigate to subscription list
+                                    }) {
+                                        Text("View All Subscriptions")
+                                            .font(.footnote)
+                                            .foregroundColor(.blue)
+                                            .padding(.vertical, 8)
+                                            .frame(maxWidth: .infinity, alignment: .center)
+                                    }
+                                }
                             }
                         }
                     }
@@ -156,32 +182,82 @@ struct DashboardView: View {
                                     Spacer()
                                 }
                             } else {
-                                HStack {
-                                    ForEach(Category.allCases) { category in
-                                        if categoryTotal(for: category) > 0 {
-                                            VStack(spacing: 8) {
-                                                ZStack {
-                                                    Circle()
-                                                        .fill(Color(category.color))
-                                                        .frame(width: 50, height: 50)
+                                // Category cards with icons
+                                ScrollView(.horizontal, showsIndicators: false) {
+                                    HStack(spacing: 15) {
+                                        ForEach(Category.allCases) { category in
+                                            if categoryTotal(for: category) > 0 {
+                                                VStack(spacing: 8) {
+                                                    ZStack {
+                                                        Circle()
+                                                            .fill(category.color)
+                                                            .frame(width: 60, height: 60)
+                                                            .shadow(color: category.color.opacity(0.3), radius: 4, x: 0, y: 2)
+                                                        
+                                                        // Use SF Symbol from category
+                                                        Image(systemName: category.icon)
+                                                            .font(.system(size: 24))
+                                                            .foregroundColor(.white)
+                                                    }
                                                     
-                                                    Image(systemName: category.icon)
-                                                        .font(.system(size: 20))
-                                                        .foregroundColor(.white)
+                                                    Text(category.displayName)
+                                                        .font(.caption)
+                                                        .fontWeight(.medium)
+                                                        .multilineTextAlignment(.center)
+                                                    
+                                                    Text("$\(categoryTotal(for: category), specifier: "%.2f")")
+                                                        .font(.caption)
+                                                        .fontWeight(.semibold)
                                                 }
-                                                
-                                                Text(category.displayName)
-                                                    .font(.caption)
-                                                    .multilineTextAlignment(.center)
-                                                    .lineLimit(1)
-                                                    .frame(width: 60)
-                                                
-                                                Text("$\(categoryTotal(for: category), specifier: "%.2f")")
-                                                    .font(.caption)
-                                                    .fontWeight(.semibold)
+                                                .frame(width: 80)
+                                                .onTapGesture {
+                                                    withAnimation {
+                                                        if selectedCategory == category {
+                                                            selectedCategory = nil
+                                                        } else {
+                                                            selectedCategory = category
+                                                        }
+                                                    }
+                                                }
+                                                .padding(.vertical, 5)
+                                                .background(
+                                                    RoundedRectangle(cornerRadius: 12)
+                                                        .fill(selectedCategory == category ? category.color.opacity(0.1) : Color.clear)
+                                                )
                                             }
-                                            .frame(maxWidth: .infinity)
                                         }
+                                    }
+                                    .padding(.vertical, 5)
+                                }
+                                
+                                // Show details for selected category
+                                if let selected = selectedCategory {
+                                    let filteredSubscriptions = subscriptionService.subscriptions.filter {
+                                        $0.category == selected && $0.status == .active
+                                    }
+                                    
+                                    if !filteredSubscriptions.isEmpty {
+                                        Divider()
+                                            .padding(.vertical, 8)
+                                        
+                                        Text("\(selected.displayName) Subscriptions")
+                                            .font(.subheadline)
+                                            .fontWeight(.semibold)
+                                        
+                                        VStack(spacing: 12) {
+                                            ForEach(filteredSubscriptions) { subscription in
+                                                HStack {
+                                                    LogoImageView(logoName: subscription.logoName, size: 30)
+                                                    Text(subscription.name)
+                                                        .font(.subheadline)
+                                                    Spacer()
+                                                    Text("$\(subscription.cost * subscription.billingCycle.monthlyFactor, specifier: "%.2f")/mo")
+                                                        .font(.subheadline)
+                                                        .fontWeight(.medium)
+                                                }
+                                            }
+                                        }
+                                        .padding(.top, 5)
                                     }
                                 }
                             }
@@ -227,9 +303,14 @@ struct DashboardView: View {
                                 
                                 if let topCategory = topSpendingCategory {
                                     VStack(alignment: .trailing, spacing: 4) {
-                                        Text(topCategory.displayName)
-                                            .font(.subheadline)
-                                            .fontWeight(.semibold)
+                                        HStack {
+                                            Image(systemName: topCategory.icon)
+                                                .foregroundColor(Color(topCategory.color))
+                                            
+                                            Text(topCategory.displayName)
+                                                .font(.subheadline)
+                                                .fontWeight(.semibold)
+                                        }
                                         
                                         Text("Top Category")
                                             .font(.caption)
@@ -257,6 +338,26 @@ struct DashboardView: View {
         }
     }
     
+    // User greeting property
+    private var userGreeting: String {
+        if let user = authService.currentUser {
+            let lastName = user.lastName ?? ""
+            let firstName = user.firstName ?? ""
+            
+            if !lastName.isEmpty && !firstName.isEmpty {
+                return "\(lastName), \(firstName)"
+            } else if !lastName.isEmpty {
+                return lastName
+            } else if !firstName.isEmpty {
+                return firstName
+            } else {
+                return "There!"
+            }
+        } else {
+            return "There!"
+        }
+    }
+    
     private var upcomingSubscriptions: [Subscription] {
         let sortedSubscriptions = subscriptionService.subscriptions
             .filter { $0.status == .active }
@@ -266,7 +367,7 @@ struct DashboardView: View {
     }
     
     private var topSpendingCategory: Category? {
-        let categoryTotals = Dictionary(grouping: subscriptionService.subscriptions) { $0.category }
+        let categoryTotals = Dictionary(grouping: subscriptionService.subscriptions.filter { $0.status == .active }) { $0.category }
             .mapValues { subscriptions in
                 subscriptions.reduce(0) { $0 + ($1.cost * $1.billingCycle.monthlyFactor) }
             }
@@ -276,15 +377,14 @@ struct DashboardView: View {
     
     private func categoryTotal(for category: Category) -> Double {
         subscriptionService.subscriptions
-            .filter { $0.category == category }
+            .filter { $0.category == category && $0.status == .active }
             .reduce(0) { $0 + ($1.cost * $1.billingCycle.monthlyFactor) }
     }
     
     private func generateAIExplanation() {
-        // Show loading indicator
+        // Create spending history for simulation
         showingAIExplanation = true
         
-        // Create spending history for simulation
         let today = Date()
         let calendar = Calendar.current
         var spendingHistory: [Date: Double] = [:]
@@ -401,3 +501,19 @@ struct AnimatedBudgetBar: View {
         .frame(height: height)
     }
 }
+
+//struct CardView<Content: View>: View {
+//    let content: Content
+//    
+//    init(@ViewBuilder content: () -> Content) {
+//        self.content = content()
+//    }
+//    
+//    var body: some View {
+//        content
+//            .padding()
+//            .background(Color.white)
+//            .cornerRadius(15)
+//            .shadow(color: Color.black.opacity(0.1), radius: 5, x: 0, y: 2)
+//    }
+//}

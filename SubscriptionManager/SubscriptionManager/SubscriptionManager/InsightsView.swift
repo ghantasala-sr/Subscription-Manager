@@ -220,7 +220,7 @@ struct InsightsView: View {
                                                 VStack(spacing: 5) {
                                                     HStack {
                                                         Circle()
-                                                            .fill(Color(category.color))
+                                                            .fill(category.color)
                                                             .frame(width: 12, height: 12)
                                                         
                                                         Text(category.displayName)
@@ -242,7 +242,7 @@ struct InsightsView: View {
                                                                 .cornerRadius(4)
                                                             
                                                             Rectangle()
-                                                                .fill(Color(category.color))
+                                                                .fill(category.color)
                                                                 .frame(width: categoryPercentage(for: category) * geometry.size.width, height: 8)
                                                                 .cornerRadius(4)
                                                         }

@@ -16,6 +16,7 @@ struct SubscriptionsListView: View {
     @State private var selectedCategory: Category? = nil
     @State private var selectedStatus: SubscriptionStatus? = nil
     @State private var sortOption = SortOption.dateAscending
+    @State private var viewRefreshTrigger = UUID() // Local refresh trigger
     
     enum SortOption {
         case dateAscending, dateDescending, costAscending, costDescending, nameAscending, nameDescending
@@ -27,10 +28,11 @@ struct SubscriptionsListView: View {
                 // Extract the filters into separate views
                 categoryFilterView
                 
-                statusFilterView
+               statusFilterView
                 
                 subscriptionListView
             }
+            .id(viewRefreshTrigger) // Force refresh with ID change
             .navigationTitle("Subscriptions")
             .searchable(text: $searchText, prompt: "Search your subscriptions")
             .toolbar {
@@ -41,6 +43,10 @@ struct SubscriptionsListView: View {
                 ToolbarItem(placement: .navigationBarLeading) {
                     sortMenu
                 }
+            }
+            .onReceive(subscriptionService.$forceRefresh) { _ in
+                // Update local trigger when service signals refresh
+                viewRefreshTrigger = UUID()
             }
             .overlay(loadingOverlay)
             .sheet(isPresented: $showAddSubscription) {
@@ -54,21 +60,40 @@ struct SubscriptionsListView: View {
     private var categoryFilterView: some View {
         ScrollView(.horizontal, showsIndicators: false) {
             HStack(spacing: 10) {
-                CategoryFilterButton(title: "All", isSelected: selectedCategory == nil) {
-                    selectedCategory = nil
+                // Special "All" button without a specific category
+                Button(action: { selectedCategory = nil }) {
+                    VStack(spacing: 6) {
+                        Image(systemName: "square.grid.3x3.fill")
+                            .font(.system(size: 20))
+                            .foregroundColor(selectedCategory == nil ? .blue : .gray)
+                        
+                        Text("All")
+                            .font(.caption)
+                            .fontWeight(selectedCategory == nil ? .semibold : .regular)
+                            .foregroundColor(selectedCategory == nil ? .blue : .primary)
+                    }
+                    .frame(width: 70, height: 70)
+                    .background(selectedCategory == nil ? Color.blue.opacity(0.1) : Color.gray.opacity(0.05))
+                    .cornerRadius(12)
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 12)
+                            .stroke(selectedCategory == nil ? Color.blue : Color.clear, lineWidth: 2)
+                    )
                 }
                 
                 ForEach(Category.allCases) { category in
                     CategoryFilterButton(
                         title: category.displayName,
                         isSelected: selectedCategory == category,
-                        color: Color(category.color)
+                        color: category.color,
+                        category: category
                     ) {
                         selectedCategory = category
                     }
                 }
             }
             .padding(.horizontal)
+            .padding(.vertical, 10)
         }
     }
     
@@ -83,13 +108,14 @@ struct SubscriptionsListView: View {
                     StatusFilterButton(
                         title: status.displayName,
                         isSelected: selectedStatus == status,
-                        color: Color(status.color)
+                        color: status.color
                     ) {
                         selectedStatus = status
                     }
                 }
             }
             .padding(.horizontal)
+            .padding(.vertical, 5)
         }
     }
     
@@ -239,8 +265,14 @@ struct SubscriptionsListView: View {
     private func deleteSubscription(_ subscription: Subscription) {
         guard let id = subscription.id else { return }
         
+        // Show loading indicator while deleting
+        subscriptionService.isLoading = true
+        
         subscriptionService.deleteSubscription(id: id) { _ in
-            // Handled by real-time listener
+            DispatchQueue.main.async {
+                subscriptionService.isLoading = false
+                viewRefreshTrigger = UUID() // Force UI update
+            }
         }
     }
     
@@ -250,8 +282,14 @@ struct SubscriptionsListView: View {
         // Cycle through statuses: active -> paused -> active
         updatedSubscription.status = updatedSubscription.status == .active ? .paused : .active
         
-        subscriptionService.updateSubscription(updatedSubscription) { _ in
-            // Handled by real-time listener
+        // Show loading indicator while updating
+        subscriptionService.isLoading = true
+        
+        subscriptionService.updateSubscription(updatedSubscription) { result in
+            DispatchQueue.main.async {
+                subscriptionService.isLoading = false
+                viewRefreshTrigger = UUID() // Force UI update
+            }
         }
     }
 }
@@ -260,22 +298,28 @@ struct CategoryFilterButton: View {
     let title: String
     let isSelected: Bool
     var color: Color = .blue
+    let category: Category
     let action: () -> Void
     
     var body: some View {
         Button(action: action) {
-            Text(title)
-                .font(.subheadline)
-                .fontWeight(isSelected ? .semibold : .regular)
-                .padding(.horizontal, 16)
-                .padding(.vertical, 8)
-                .background(isSelected ? color.opacity(0.1) : Color.gray.opacity(0.1))
-                .foregroundColor(isSelected ? color : .primary)
-                .cornerRadius(20)
-                .overlay(
-                    RoundedRectangle(cornerRadius: 20)
-                        .stroke(isSelected ? color : Color.clear, lineWidth: 1)
-                )
+            VStack(spacing: 6) {
+                Image(systemName: category.icon)
+                    .font(.system(size: 20))
+                    .foregroundColor(isSelected ? color : .gray)
+                
+                Text(title)
+                    .font(.caption)
+                    .fontWeight(isSelected ? .semibold : .regular)
+                    .foregroundColor(isSelected ? color : .primary)
+            }
+            .frame(width: 70, height: 70)
+            .background(isSelected ? color.opacity(0.1) : Color.gray.opacity(0.05))
+            .cornerRadius(12)
+            .overlay(
+                RoundedRectangle(cornerRadius: 12)
+                    .stroke(isSelected ? color : Color.clear, lineWidth: 2)
+            )
         }
     }
 }
@@ -293,12 +337,12 @@ struct StatusFilterButton: View {
                 .fontWeight(isSelected ? .semibold : .regular)
                 .padding(.horizontal, 16)
                 .padding(.vertical, 8)
-                .background(isSelected ? color.opacity(0.1) : Color.gray.opacity(0.1))
+                .background(isSelected ? color.opacity(0.2) : Color.gray.opacity(0.1))
                 .foregroundColor(isSelected ? color : .primary)
                 .cornerRadius(20)
                 .overlay(
                     RoundedRectangle(cornerRadius: 20)
-                        .stroke(isSelected ? color : Color.clear, lineWidth: 1)
+                        .stroke(isSelected ? color : Color.clear, lineWidth: 2)
                 )
         }
     }

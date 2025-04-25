@@ -91,233 +91,242 @@ struct AddSubscriptionView: View {
     ]
     
     var body: some View {
-        NavigationView {
-            Form {
-                // Breaking down the form into sections
-                categoriesSection
-                
-                if showCategoryPicker {
-                    templatesSection
-                }
-                
-                subscriptionDetailsSection
-                familyMemberSection
-                optionalDetailsSection
-                addButtonSection
-            }
-            .navigationTitle("Add Subscription")
-            .navigationBarItems(trailing: Button("Cancel") {
-                dismiss()
-            })
-            .overlay(loadingOverlay)
-            .alert(isPresented: .constant(errorMessage != nil)) {
-                Alert(
-                    title: Text("Error"),
-                    message: Text(errorMessage ?? "An unknown error occurred"),
-                    dismissButton: .default(Text("OK")) {
-                        errorMessage = nil
+            NavigationView {
+                Form {
+                    // Breaking down the form into sections
+                    categoriesSection
+
+                    if showCategoryPicker {
+                        templatesSection
                     }
-                )
-            }
-        }
-    }
-    
-    // MARK: - Section Components
-    
-    private var categoriesSection: some View {
-        Section(header: Text("Categories")) {
-            ScrollView(.horizontal, showsIndicators: false) {
-                HStack(spacing: 15) {
-                    ForEach(Category.allCases) { categoryOption in
-                        Button(action: {
-                            category = categoryOption
-                            showCategoryPicker.toggle()
-                        }) {
-                            VStack {
-                                ZStack {
-                                    Circle()
-                                        .fill(Color(categoryOption.color))
-                                        .frame(width: 60, height: 60)
-                                    
-                                    Image(systemName: categoryOption.icon)
-                                        .font(.system(size: 30))
-                                        .foregroundColor(.white)
-                                }
-                                .overlay(
-                                    Circle()
-                                        .stroke(category == categoryOption ? Color.blue : Color.clear, lineWidth: 3)
-                                )
-                                
-                                Text(categoryOption.displayName)
-                                    .font(.caption)
-                                    .multilineTextAlignment(.center)
-                                    .frame(width: 70)
-                            }
+
+                    subscriptionDetailsSection
+                    familyMemberSection
+                    optionalDetailsSection
+                    addButtonSection
+                }
+                .navigationTitle("Add Subscription")
+                .navigationBarItems(trailing: Button("Cancel") {
+                    dismiss()
+                })
+                .overlay(loadingOverlay)
+                .alert(isPresented: .constant(errorMessage != nil)) {
+                    Alert(
+                        title: Text("Error"),
+                        message: Text(errorMessage ?? "An unknown error occurred"),
+                        dismissButton: .default(Text("OK")) {
+                            errorMessage = nil
                         }
-                        .buttonStyle(PlainButtonStyle())
-                    }
+                    )
                 }
-                .padding(.vertical, 10)
             }
         }
-    }
-    
-    private var templatesSection: some View {
-        Section(header: Text("Popular \(category.displayName) Services")) {
-            ScrollView(.horizontal, showsIndicators: false) {
-                HStack(spacing: 15) {
-                    let filteredTemplates = subscriptionTemplates.filter { $0.category == category }
-                    
-                    ForEach(filteredTemplates) { template in
-                        Button(action: {
-                            selectTemplate(template)
-                        }) {
-                            VStack {
-                                LogoImageView(logoName: template.logo, size: 60)
-                                    .padding(5)
+
+        // MARK: - Section Components
+
+        private var categoriesSection: some View {
+            Section(header: Text("Categories")) {
+                ScrollView(.horizontal, showsIndicators: false) {
+                    HStack(spacing: 15) {
+                        ForEach(Category.allCases) { categoryOption in
+                            Button(action: {
+                                category = categoryOption
+                                selectedTemplate = nil          // clear previous template
+                                showCategoryPicker = true       // always show templates
+                            }) {
+                                VStack {
+                                    ZStack {
+                                        Circle()
+                                            .fill(categoryOption.color)
+                                            .frame(width: 60, height: 60)
+
+                                        Image(systemName: categoryOption.icon)
+                                            .font(.system(size: 30))
+                                            .foregroundColor(.white)
+                                    }
                                     .overlay(
-                                        RoundedRectangle(cornerRadius: 8)
-                                            .stroke(selectedTemplate?.name == template.name ? Color.blue : Color.clear, lineWidth: 3)
+                                        Circle()
+                                            .stroke(category == categoryOption ? Color.blue : Color.clear, lineWidth: 3)
                                     )
-                                
-                                Text(template.name)
-                                    .font(.caption)
-                                    .multilineTextAlignment(.center)
-                                    .frame(width: 70)
-                                
-                                Text("$\(template.defaultCost, specifier: "%.2f")")
-                                    .font(.caption)
-                                    .foregroundColor(.secondary)
+
+                                    Text(categoryOption.displayName)
+                                        .font(.caption)
+                                        .multilineTextAlignment(.center)
+                                        .frame(width: 70)
+                                }
                             }
+                            .buttonStyle(PlainButtonStyle())
                         }
-                        .buttonStyle(PlainButtonStyle())
+                    }
+                    .padding(.vertical, 10)
+                }
+            }
+        }
+
+        private var templatesSection: some View {
+            Section(header:
+                HStack {
+                    Text("Popular \(category.displayName) Services")
+                    Spacer()
+                    Button("Hide") {
+                        showCategoryPicker = false
+                    }
+                    .font(.caption)
+                }
+            ) {
+                ScrollView(.horizontal, showsIndicators: false) {
+                    HStack(spacing: 15) {
+                        let filteredTemplates = subscriptionTemplates.filter { $0.category == category }
+
+                        ForEach(filteredTemplates) { template in
+                            Button(action: {
+                                selectTemplate(template)
+                            }) {
+                                VStack {
+                                    LogoImageView(logoName: template.logo, size: 60)
+                                        .padding(5)
+                                        .overlay(
+                                            RoundedRectangle(cornerRadius: 8)
+                                                .stroke(selectedTemplate?.name == template.name ? Color.blue : Color.clear, lineWidth: 3)
+                                        )
+
+                                    Text(template.name)
+                                        .font(.caption)
+                                        .multilineTextAlignment(.center)
+                                        .frame(width: 70)
+
+                                    Text("$\(template.defaultCost, specifier: "%.2f")")
+                                        .font(.caption)
+                                        .foregroundColor(.secondary)
+                                }
+                            }
+                            .buttonStyle(PlainButtonStyle())
+                        }
+                    }
+                    .padding(.vertical, 10)
+                }
+            }
+        }
+
+        private var subscriptionDetailsSection: some View {
+            Section(header: Text("Subscription Details")) {
+                TextField("Name", text: $name)
+
+                Picker("Category", selection: $category) {
+                    ForEach(Category.allCases) {
+                        Text($0.displayName).tag($0)
                     }
                 }
-                .padding(.vertical, 10)
-            }
-        }
-    }
-    
-    private var subscriptionDetailsSection: some View {
-        Section(header: Text("Subscription Details")) {
-            TextField("Name", text: $name)
-            
-            Picker("Category", selection: $category) {
-                ForEach(Category.allCases) {
-                    Text($0.displayName).tag($0)
+
+                HStack {
+                    Text("Cost")
+                    Spacer()
+                    TextField("0.00", value: $cost, format: .currency(code: "USD"))
+                        .keyboardType(.decimalPad)
+                        .multilineTextAlignment(.trailing)
                 }
-            }
-            
-            HStack {
-                Text("Cost")
-                Spacer()
-                TextField("0.00", value: $cost, format: .currency(code: "USD"))
-                    .keyboardType(.decimalPad)
-                    .multilineTextAlignment(.trailing)
-            }
-            
-            Picker("Billing Cycle", selection: $billingCycle) {
-                ForEach(BillingCycle.allCases) {
-                    Text($0.displayName).tag($0)
+
+                Picker("Billing Cycle", selection: $billingCycle) {
+                    ForEach(BillingCycle.allCases) {
+                        Text($0.displayName).tag($0)
+                    }
                 }
-            }
-            
-            DatePicker("Next Billing Date", selection: $nextBillingDate, displayedComponents: .date)
-            
-            Picker("Status", selection: $status) {
-                ForEach(SubscriptionStatus.allCases) { statusOption in
-                    HStack {
-                        Image(systemName: statusOption.icon)
-                            .foregroundColor(Color(statusOption.color))
-                        Text(statusOption.displayName).tag(statusOption)
+
+                DatePicker("Next Billing Date", selection: $nextBillingDate, displayedComponents: .date)
+
+                Picker("Status", selection: $status) {
+                    ForEach(SubscriptionStatus.allCases) { statusOption in
+                        HStack {
+                            Image(systemName: statusOption.icon)
+                                .foregroundColor(statusOption.color)
+                            Text(statusOption.displayName).tag(statusOption)
+                        }
                     }
                 }
             }
         }
-    }
-    
-    private var familyMemberSection: some View {
-        Section(header: Text("Family Member (Optional)")) {
-            if familyMemberService.familyMembers.isEmpty {
-                NavigationLink(destination: FamilyMembersListView()) {
-                    Text("Add a Family Member")
-                        .foregroundColor(.blue)
-                }
-            } else {
-                Picker("For Family Member", selection: $selectedFamilyMember) {
-                    Text("None (For Me)").tag(nil as FamilyMember?)
-                    
-                    ForEach(familyMemberService.familyMembers) { member in
-                        Text("\(member.name) (\(member.relationship))").tag(member as FamilyMember?)
+
+        private var familyMemberSection: some View {
+            Section(header: Text("Family Member (Optional)")) {
+                if familyMemberService.familyMembers.isEmpty {
+                    NavigationLink(destination: FamilyMembersListView()) {
+                        Text("Add a Family Member")
+                            .foregroundColor(.blue)
+                    }
+                } else {
+                    Picker("For Family Member", selection: $selectedFamilyMember) {
+                        Text("None (For Me)").tag(nil as FamilyMember?)
+
+                        ForEach(familyMemberService.familyMembers) { member in
+                            Text("\(member.name) (\(member.relationship))").tag(member as FamilyMember?)
+                        }
                     }
                 }
             }
         }
-    }
-    
-    private var optionalDetailsSection: some View {
-        Section(header: Text("Optional Details")) {
-            TextField("Card last 4 digits", text: $cardLastFourDigits)
-                .keyboardType(.numberPad)
-                .onChange(of: cardLastFourDigits) { newValue in
-                    // Limit to 4 digits
-                    if newValue.count > 4 {
-                        cardLastFourDigits = String(newValue.prefix(4))
+
+        private var optionalDetailsSection: some View {
+            Section(header: Text("Optional Details")) {
+                TextField("Card last 4 digits", text: $cardLastFourDigits)
+                    .keyboardType(.numberPad)
+                    .onChange(of: cardLastFourDigits) { newValue in
+                        if newValue.count > 4 {
+                            cardLastFourDigits = String(newValue.prefix(4))
+                        }
                     }
+
+                TextField("Notes", text: $notes, axis: .vertical)
+                    .lineLimit(3...5)
+            }
+        }
+
+        private var addButtonSection: some View {
+            Section {
+                Button("Add Subscription") {
+                    addSubscription()
                 }
-            
-            TextField("Notes", text: $notes, axis: .vertical)
-                .lineLimit(3...5)
-        }
-    }
-    
-    private var addButtonSection: some View {
-        Section {
-            Button("Add Subscription") {
-                addSubscription()
-            }
-            .frame(maxWidth: .infinity)
-            .multilineTextAlignment(.center)
-            .disabled(name.isEmpty || cost <= 0)
-        }
-    }
-    
-    private var loadingOverlay: some View {
-        Group {
-            if isLoading {
-                LoadingView()
+                .frame(maxWidth: .infinity)
+                .multilineTextAlignment(.center)
+                .disabled(name.isEmpty || cost <= 0)
             }
         }
-    }
-    
-    // MARK: - Helper Methods
-    
-    private func selectTemplate(_ template: SubscriptionTemplate) {
-        selectedTemplate = template
-        name = template.name
-        category = template.category
-        cost = template.defaultCost
-        logoName = template.logo
-    }
-    
-    private func addSubscription() {
-        guard let userId = authService.currentUser?.id else {
-            errorMessage = "User not found"
-            return
+
+        private var loadingOverlay: some View {
+            Group {
+                if isLoading {
+                    LoadingView()
+                }
+            }
         }
-        
-        isLoading = true
-        
-        // Determine logo name based on selection or common services
-        var actualLogoName = logoName
-        if actualLogoName == "subscription-default" {
-            actualLogoName = determineLogoName(for: name)
+
+        // MARK: - Helper Methods
+
+        private func selectTemplate(_ template: SubscriptionTemplate) {
+            selectedTemplate = template
+            name = template.name
+            category = template.category
+            cost = template.defaultCost
+            logoName = template.logo
         }
-        
-        // Schedule notification if enabled
-        var notificationKey: String? = nil
-        if status == .active {
-            if let preferences = preferencesService.userPreferences, preferences.enableNotifications {
+
+        private func addSubscription() {
+            guard let userId = authService.currentUser?.id else {
+                errorMessage = "User not found"
+                return
+            }
+
+            isLoading = true
+
+            var actualLogoName = logoName
+            if actualLogoName == "subscription-default" {
+                actualLogoName = determineLogoName(for: name)
+            }
+
+            var notificationKey: String? = nil
+            if status == .active,
+               let preferences = preferencesService.userPreferences,
+               preferences.enableNotifications
+            {
                 notificationKey = notificationService.scheduleNotification(
                     for: Subscription(
                         userId: userId,
@@ -334,47 +343,42 @@ struct AddSubscriptionView: View {
                     daysBefore: preferences.notifyDaysBefore
                 )
             }
-        }
-        
-        let subscription = Subscription(
-            userId: userId,
-            name: name,
-            category: category,
-            cost: cost,
-            billingCycle: billingCycle,
-            nextBillingDate: nextBillingDate,
-            cardLastFourDigits: cardLastFourDigits.isEmpty ? nil : cardLastFourDigits,
-            status: status,
-            logoName: actualLogoName,
-            notificationKey: notificationKey,
-            notes: notes.isEmpty ? nil : notes,
-            dateAdded: Date(),
-            familyMember: selectedFamilyMember
-        )
-        
-        subscriptionService.addSubscription(subscription) { result in
-            isLoading = false
-            
-            switch result {
-            case .success:
-                dismiss()
-            case .failure(let error):
-                errorMessage = error.localizedDescription
+
+            let subscription = Subscription(
+                userId: userId,
+                name: name,
+                category: category,
+                cost: cost,
+                billingCycle: billingCycle,
+                nextBillingDate: nextBillingDate,
+                cardLastFourDigits: cardLastFourDigits.isEmpty ? nil : cardLastFourDigits,
+                status: status,
+                logoName: actualLogoName,
+                notificationKey: notificationKey,
+                notes: notes.isEmpty ? nil : notes,
+                dateAdded: Date(),
+                familyMember: selectedFamilyMember
+            )
+
+            subscriptionService.addSubscription(subscription) { result in
+                isLoading = false
+
+                switch result {
+                case .success:
+                    dismiss()
+                case .failure(let error):
+                    errorMessage = error.localizedDescription
+                }
             }
         }
-    }
-    
-    private func determineLogoName(for name: String) -> String {
-        let lowercasedName = name.lowercased()
-        
-        // Check against predefined templates
-        for template in subscriptionTemplates {
-            if lowercasedName.contains(template.name.lowercased()) {
-                return template.logo
+
+        private func determineLogoName(for name: String) -> String {
+            let lowercasedName = name.lowercased()
+            for template in subscriptionTemplates {
+                if lowercasedName.contains(template.name.lowercased()) {
+                    return template.logo
+                }
             }
+            return "subscription-default"
         }
-        
-        // Default logo
-        return "subscription-default"
     }
-}

@@ -7,6 +7,7 @@
 
 import Foundation
 import FirebaseFirestore
+import SwiftUICore
 
 enum Category: String, Codable, CaseIterable, Identifiable {
     case entertainment, utilities, software, health, education, other
@@ -19,23 +20,23 @@ enum Category: String, Codable, CaseIterable, Identifiable {
     
     var icon: String {
         switch self {
-        case .entertainment: return "tv.fill"
-        case .utilities: return "bolt.fill"
-        case .software: return "laptopcomputer"
-        case .health: return "heart.fill"
-        case .education: return "book.fill"
-        case .other: return "square.grid.2x2.fill"
+        case .entertainment: return "tv.fill"              // TV icon for entertainment
+        case .utilities: return "bolt.fill"                // Lightning bolt for utilities
+        case .software: return "app.fill"                  // App icon for software
+        case .health: return "heart.circle.fill"           // Heart for health
+        case .education: return "book.fill"                // Book for education
+        case .other: return "square.grid.2x2.fill"         // Grid for other/miscellaneous
         }
     }
     
-    var color: String {
+    var color: Color {
         switch self {
-        case .entertainment: return "purple"
-        case .utilities: return "blue"
-        case .software: return "orange"
-        case .health: return "green"
-        case .education: return "red"
-        case .other: return "gray"
+        case .entertainment: return .purple
+        case .utilities:    return .blue
+        case .software:     return .orange
+        case .health:       return .green
+        case .education:    return .red
+        case .other:        return .gray
         }
     }
 }
@@ -66,7 +67,7 @@ enum BillingCycle: String, Codable, CaseIterable, Identifiable {
     }
 }
 
-enum SubscriptionStatus: String, Codable, CaseIterable, Identifiable {
+enum SubscriptionStatus: String, Codable, CaseIterable, Identifiable, Hashable {
     case active, paused, cancelled, archived
     
     var id: String { self.rawValue }
@@ -75,12 +76,12 @@ enum SubscriptionStatus: String, Codable, CaseIterable, Identifiable {
         self.rawValue.capitalized
     }
     
-    var color: String {
+    var color: Color {
         switch self {
-        case .active: return "green"
-        case .paused: return "orange"
-        case .cancelled: return "red"
-        case .archived: return "gray"
+        case .active: return .green
+        case .paused: return .orange
+        case .cancelled: return .red
+        case .archived: return .gray
         }
     }
     

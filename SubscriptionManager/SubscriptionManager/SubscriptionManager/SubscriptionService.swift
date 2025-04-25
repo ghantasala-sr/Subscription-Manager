@@ -14,6 +14,7 @@ class SubscriptionService: ObservableObject {
     @Published var subscriptions: [Subscription] = []
     @Published var isLoading = false
     @Published var errorMessage: String?
+    @Published var forceRefresh = UUID() // Add this to force view updates
     
     private let db = Firestore.firestore()
     private var listenerRegistration: ListenerRegistration?
@@ -47,6 +48,11 @@ class SubscriptionService: ObservableObject {
                 }.sorted { $0.nextBillingDate < $1.nextBillingDate }
                 
                 self.isLoading = false
+                
+                // Trigger UI refresh
+                DispatchQueue.main.async {
+                    self.forceRefresh = UUID()
+                }
             }
     }
     
@@ -57,6 +63,10 @@ class SubscriptionService: ObservableObject {
             if let error = error {
                 completion(.failure(error))
             } else {
+                // Force refresh after adding
+                DispatchQueue.main.async {
+                    self.forceRefresh = UUID()
+                }
                 completion(.success(()))
             }
         }
@@ -70,6 +80,21 @@ class SubscriptionService: ObservableObject {
         
         let subscriptionData = subscription.dictionaryRepresentation
         
+        // First, update the local array immediately for UI responsiveness
+        if let index = self.subscriptions.firstIndex(where: { $0.id == subscription.id }) {
+            // Make a new copy of the subscriptions array
+            var updatedSubscriptions = self.subscriptions
+            updatedSubscriptions[index] = subscription
+            
+            // Update the published property to ensure UI refreshes
+            DispatchQueue.main.async {
+                self.subscriptions = updatedSubscriptions
+                self.objectWillChange.send()
+                self.forceRefresh = UUID()
+            }
+        }
+        
+        // Then update in Firestore
         db.collection("subscriptions").document(id).updateData(subscriptionData) { error in
             if let error = error {
                 completion(.failure(error))
@@ -84,6 +109,10 @@ class SubscriptionService: ObservableObject {
             if let error = error {
                 completion(.failure(error))
             } else {
+                // Force refresh after deleting
+                DispatchQueue.main.async {
+                    self.forceRefresh = UUID()
+                }
                 completion(.success(()))
             }
         }

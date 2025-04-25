@@ -16,18 +16,29 @@ struct WelcomeView: View {
     var body: some View {
         ZStack {
             // Animated background (simplified for brevity)
-            Color.blue.opacity(0.1).ignoresSafeArea()
+            LinearGradient(
+                gradient: Gradient(stops: [
+                    .init(color: .white, location: 0.0),
+                    .init(color: .white, location: 0.5),
+                    .init(color: Color(red: 1.0, green: 0.85, blue: 0.7), location: 0.6),  // pale peach
+                    .init(color: Color(red: 1.0, green: 0.7, blue: 0.7), location: 0.8),  // soft blush
+                    .init(color: Color(red: 0.85, green: 0.9, blue: 1.0), location: 1.0)
+                ]),
+                startPoint: .top,
+                endPoint: .bottom
+            )
+            .ignoresSafeArea()
             
             VStack(spacing: 30) {
                 // App logo & title
                 VStack(spacing: 15) {
-                    Image(systemName: "creditcard.fill")
+                    Image("appstore")
                         .resizable()
                         .aspectRatio(contentMode: .fit)
                         .frame(width: 100, height: 100)
                         .foregroundColor(.blue)
                     
-                    Text("SubscriptSmart")
+                    Text("Subscription Manager")
                         .font(.system(size: 36, weight: .bold))
                         .foregroundColor(.primary)
                 }
