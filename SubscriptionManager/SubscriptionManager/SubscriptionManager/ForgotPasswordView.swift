@@ -2,6 +2,14 @@
 //  ForgotPasswordView.swift
 //  SubscriptionManager
 //
+//  Created by Srinivasa Rithik Ghantasala on 4/25/25.
+//
+
+
+//
+//  ForgotPasswordView.swift
+//  SubscriptionManager
+//
 //  Created by Srinivasa Rithik Ghantasala on 4/24/25.
 //
 
@@ -30,7 +38,7 @@ struct ForgotPasswordView: View {
                             .font(.title2)
                             .fontWeight(.bold)
                         
-                        Text("We've sent password reset instructions to your email. Please check your inbox.")
+                        Text("We've sent password reset instructions to your email. Please check your inbox and follow the link to reset your password.")
                             .font(.body)
                             .multilineTextAlignment(.center)
                             .foregroundColor(.secondary)

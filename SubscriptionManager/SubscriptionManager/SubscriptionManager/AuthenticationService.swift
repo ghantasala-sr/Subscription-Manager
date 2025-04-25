@@ -16,6 +16,8 @@ class AuthenticationService: ObservableObject {
     @Published var isAuthenticated = false
     @Published var isLoading = false
     @Published var errorMessage: String?
+    @Published var isEmailVerified = false
+    @Published var pendingVerificationEmail: String?
     
     private let auth = Auth.auth()
     private let db = Firestore.firestore()
@@ -31,10 +33,28 @@ class AuthenticationService: ObservableObject {
             
             if let user = user {
                 self.isLoading = true
-                self.fetchUserData(uid: user.uid)
+                // Reload user to get the latest email verification status
+                user.reload { error in
+                    if error == nil {
+                        // Update email verification status
+                        self.isEmailVerified = user.isEmailVerified
+                        if !user.isEmailVerified {
+                            self.pendingVerificationEmail = user.email
+                        } else {
+                            self.pendingVerificationEmail = nil
+                        }
+                        self.fetchUserData(uid: user.uid)
+                    } else {
+                        self.isLoading = false
+                        self.isAuthenticated = false
+                        self.errorMessage = "Failed to refresh user data"
+                    }
+                }
             } else {
                 self.currentUser = nil
                 self.isAuthenticated = false
+                self.isEmailVerified = false
+                self.pendingVerificationEmail = nil
                 self.isLoading = false
             }
         }
@@ -62,6 +82,7 @@ class AuthenticationService: ObservableObject {
         }
     }
     
+    
     func signUp(email: String, password: String, firstName: String?, lastName: String?, monthlyBudget: Double, yearlyBudget: Double, completion: @escaping (Bool) -> Void) {
         isLoading = true
         errorMessage = nil
@@ -76,57 +97,69 @@ class AuthenticationService: ObservableObject {
                 return
             }
             
-            guard let uid = result?.user.uid else {
+            guard let user = result?.user, let uid = result?.user.uid else {
                 self.errorMessage = "Failed to create user"
                 self.isLoading = false
                 completion(false)
                 return
             }
             
-            // Create user profile
-            let userData = User(
-                id: uid,
-                email: email,
-                firstName: firstName,
-                lastName: lastName,
-                createdAt: Date()
-            )
-            
-            // Create user preferences
-            let userPreferences = UserPreferences(
-                userId: uid,
-                monthlyBudget: monthlyBudget,
-                yearlyBudget: yearlyBudget,
-                enableNotifications: true,
-                notificationTime: Calendar.current.date(bySettingHour: 9, minute: 0, second: 0, of: Date()) ?? Date(),
-                notifyDaysBefore: 3,
-                currencyCode: "USD",
-                themePreference: "system",
-                createdAt: Date()
-            )
-            
-            // Save user data to Firestore
-            self.db.collection("users").document(uid).setData(userData.dictionaryRepresentation) { error in
+            // Send email verification
+            user.sendEmailVerification { [weak self] error in
+                guard let self = self else { return }
+                
                 if let error = error {
-                    self.errorMessage = "Failed to save user data: \(error.localizedDescription)"
-                    self.isLoading = false
-                    completion(false)
-                    return
+                    print("Error sending verification email: \(error.localizedDescription)")
+                    // Continue with account creation even if email verification fails
                 }
                 
-                // Save user preferences
-                self.db.collection("userPreferences").document(uid).setData(userPreferences.dictionaryRepresentation) { error in
+                // Create user profile
+                let userData = User(
+                    id: uid,
+                    email: email,
+                    firstName: firstName,
+                    lastName: lastName,
+                    createdAt: Date()
+                )
+                
+                // Create user preferences
+                let userPreferences = UserPreferences(
+                    userId: uid,
+                    monthlyBudget: monthlyBudget,
+                    yearlyBudget: yearlyBudget,
+                    enableNotifications: true,
+                    notificationTime: Calendar.current.date(bySettingHour: 9, minute: 0, second: 0, of: Date()) ?? Date(),
+                    notifyDaysBefore: 3,
+                    currencyCode: "USD",
+                    themePreference: "system",
+                    createdAt: Date()
+                )
+                
+                // Save user data to Firestore
+                self.db.collection("users").document(uid).setData(userData.dictionaryRepresentation) { error in
                     if let error = error {
-                        self.errorMessage = "Failed to save user preferences: \(error.localizedDescription)"
+                        self.errorMessage = "Failed to save user data: \(error.localizedDescription)"
                         self.isLoading = false
                         completion(false)
                         return
                     }
                     
-                    // Add sample subscriptions
-                    self.addSampleSubscriptions(for: uid) {
-                        self.isLoading = false
-                        completion(true)
+                    // Save user preferences
+                    self.db.collection("userPreferences").document(uid).setData(userPreferences.dictionaryRepresentation) { error in
+                        if let error = error {
+                            self.errorMessage = "Failed to save user preferences: \(error.localizedDescription)"
+                            self.isLoading = false
+                            completion(false)
+                            return
+                        }
+                        
+                        // Add sample subscriptions
+                        self.addSampleSubscriptions(for: uid) {
+                            self.isLoading = false
+                            self.pendingVerificationEmail = email
+                            self.isEmailVerified = false
+                            completion(true)
+                        }
                     }
                 }
             }
@@ -147,8 +180,67 @@ class AuthenticationService: ObservableObject {
                 return
             }
             
+            // Check if email is verified
+            if let user = result?.user, !user.isEmailVerified {
+                self.isEmailVerified = false
+                self.pendingVerificationEmail = email
+            } else {
+                self.isEmailVerified = true
+                self.pendingVerificationEmail = nil
+            }
+            
             // AuthStateDidChangeListener will handle fetching user data
             completion(true)
+        }
+    }
+    
+    func resendVerificationEmail(completion: @escaping (Bool) -> Void) {
+        guard let user = auth.currentUser else {
+            errorMessage = "No user logged in"
+            completion(false)
+            return
+        }
+        
+        isLoading = true
+        user.sendEmailVerification { [weak self] error in
+            guard let self = self else { return }
+            self.isLoading = false
+            
+            if let error = error {
+                self.errorMessage = "Failed to send verification email: \(error.localizedDescription)"
+                completion(false)
+                return
+            }
+            
+            completion(true)
+        }
+    }
+    
+    func checkEmailVerification(completion: @escaping (Bool) -> Void) {
+        guard let user = auth.currentUser else {
+            completion(false)
+            return
+        }
+        
+        isLoading = true
+        user.reload { [weak self] error in
+            guard let self = self else { return }
+            self.isLoading = false
+            
+            if let error = error {
+                self.errorMessage = "Failed to refresh user: \(error.localizedDescription)"
+                completion(false)
+                return
+            }
+            
+            if self.auth.currentUser?.isEmailVerified == true {
+                self.isEmailVerified = true
+                self.pendingVerificationEmail = nil
+                completion(true)
+            } else {
+                self.isEmailVerified = false
+                completion(false)
+            }
         }
     }
     
@@ -167,14 +259,14 @@ class AuthenticationService: ObservableObject {
         auth.sendPasswordReset(withEmail: email) { [weak self] error in
             guard let self = self else { return }
             
+            self.isLoading = false
+            
             if let error = error {
                 self.errorMessage = error.localizedDescription
-                self.isLoading = false
                 completion(false)
                 return
             }
             
-            self.isLoading = false
             completion(true)
         }
     }

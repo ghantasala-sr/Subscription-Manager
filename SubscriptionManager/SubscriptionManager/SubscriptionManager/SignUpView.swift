@@ -5,7 +5,6 @@
 //  Created by Srinivasa Rithik Ghantasala on 4/24/25.
 //
 
-
 import SwiftUI
 
 struct SignUpView: View {
@@ -20,6 +19,9 @@ struct SignUpView: View {
     @State private var monthlyBudget = 100.0
     @State private var yearlyBudget = 1200.0
     @State private var currentStep = 0
+    
+    // New state properties for verification flow
+    @State private var showingVerificationAlert = false
     
     var body: some View {
         NavigationView {
@@ -266,6 +268,13 @@ struct SignUpView: View {
                 }
             }
         )
+        .alert("Email Verification Required", isPresented: $showingVerificationAlert) {
+            Button("OK", role: .cancel) {
+                dismiss() // Return to the welcome screen
+            }
+        } message: {
+            Text("We've sent a verification link to your email address. Please check your inbox and verify your email before signing in.")
+        }
     }
     
     private var isStep1Valid: Bool {
@@ -291,7 +300,8 @@ struct SignUpView: View {
             yearlyBudget: yearlyBudget
         ) { success in
             if success {
-                dismiss()
+                // Show verification alert instead of dismissing
+                showingVerificationAlert = true
             }
         }
     }

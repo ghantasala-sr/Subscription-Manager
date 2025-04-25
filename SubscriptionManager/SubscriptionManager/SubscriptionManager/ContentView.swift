@@ -14,9 +14,17 @@ struct ContentView: View {
     var body: some View {
         ZStack {
             if authService.isAuthenticated {
-                MainTabView()
-                    .environmentObject(authService)
+                if authService.isEmailVerified {
+                    // Fully authenticated and verified user
+                    MainTabView()
+                        .environmentObject(authService)
+                } else {
+                    // User is authenticated but email not verified
+                    EmailVerificationView()
+                        .environmentObject(authService)
+                }
             } else {
+                // Not authenticated
                 WelcomeView()
                     .environmentObject(authService)
             }

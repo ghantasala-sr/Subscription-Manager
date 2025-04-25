@@ -39,6 +39,7 @@ enum Category: String, Codable, CaseIterable, Identifiable {
         case .other:        return .gray
         }
     }
+
 }
 
 enum BillingCycle: String, Codable, CaseIterable, Identifiable {
@@ -320,3 +321,6 @@ struct SubscriptionCombination: Identifiable {
     let confidenceScore: Double  // 0.0-1.0 representing the model's confidence
     let implementationSteps: [String]
 }
+
+
+

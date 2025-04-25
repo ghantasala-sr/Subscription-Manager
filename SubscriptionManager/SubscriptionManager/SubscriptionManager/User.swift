@@ -15,6 +15,7 @@ struct User: Identifiable, Codable {
     var firstName: String?
     var lastName: String?
     var createdAt: Date
+    var isEmailVerified: Bool = false
     
     var dictionaryRepresentation: [String: Any] {
         var dict: [String: Any] = [

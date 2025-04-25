@@ -132,11 +132,11 @@ struct SettingsView: View {
                         }
                     }
                     
-                    Picker("Theme", selection: $themePreference) {
-                        ForEach(themeOptions, id: \.0) { value, name in
-                            Text(name).tag(value)
-                        }
-                    }
+//                    Picker("Theme", selection: $themePreference) {
+//                        ForEach(themeOptions, id: \.0) { value, name in
+//                            Text(name).tag(value)
+//                        }
+//                    }
                 }
                 
                 // Account settings
@@ -149,8 +149,12 @@ struct SettingsView: View {
                                 .foregroundColor(.secondary)
                         }
                         
-                        NavigationLink(destination: Text("Change Password View")) {
-                            Text("Change Password")
+                        NavigationLink(destination: ChangePasswordView()) {
+                            HStack {
+                                Image(systemName: "key.fill")
+                                    .foregroundColor(.blue)
+                                Text("Change Password")
+                            }
                         }
                     }
                     

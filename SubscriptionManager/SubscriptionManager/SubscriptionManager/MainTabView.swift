@@ -30,6 +30,10 @@ struct MainTabView: View {
                 .tabItem {
                     Label("Insights", systemImage: "lightbulb.fill")
                 }
+            OffersView() // Add this new tab
+                            .tabItem {
+                                Label("Offers", systemImage: "tag.fill")
+                            }
             
             SettingsView()
                 .tabItem {
